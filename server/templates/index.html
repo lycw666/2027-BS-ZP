@@ -1,1 +1,171 @@
 
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能环境监测系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 25px;
+            background: #f3f6fb;
+            font-family: "Microsoft YaHei", sans-serif;
+            color: #253047;
+        }
+        h1 { margin-bottom: 8px; }
+        .subtitle { color: #718096; margin-bottom: 25px; }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+        }
+        .card {
+            background: white;
+            padding: 22px;
+            border-radius: 12px;
+            box-shadow: 0 3px 15px #0000000b;
+        }
+        .value { font-size: 30px; font-weight: bold; margin-top: 12px; }
+        .unit { color: #718096; font-size: 14px; }
+        .chart {
+            background: white;
+            margin-top: 22px;
+            padding: 20px;
+            border-radius: 12px;
+            height: 350px;
+        }
+        .node-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+            margin-top: 22px;
+        }
+        .status { color: #16a36a; font-weight: bold; }
+        .muted { color: #718096; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <h1>智能环境监测系统</h1>
+    <div class="subtitle">多节点物联网环境数据监测平台</div>
+
+    <div class="cards">
+        <div class="card">
+            <div>当前平均温度</div>
+            <div class="value" id="temperature">-- °C</div>
+        </div>
+        <div class="card">
+            <div>当前平均湿度</div>
+            <div class="value" id="humidity">-- %</div>
+        </div>
+        <div class="card">
+            <div>当前平均光照</div>
+            <div class="value" id="light">-- lx</div>
+        </div>
+        <div class="card">
+            <div>数据库记录总数</div>
+            <div class="value" id="total">--</div>
+        </div>
+    </div>
+
+    <h2>设备节点状态</h2>
+    <div class="node-list" id="nodes"></div>
+
+    <div class="chart" id="temperatureChart"></div>
+    <div class="chart" id="humidityChart"></div>
+    <div class="chart" id="lightChart"></div>
+
+    <script>
+        const tempChart = echarts.init(document.getElementById("temperatureChart"));
+        const humidityChart = echarts.init(document.getElementById("humidityChart"));
+        const lightChart = echarts.init(document.getElementById("lightChart"));
+
+        async function updateDashboard() {
+            try {
+                const [latestRes, historyRes, statsRes] = await Promise.all([
+                    fetch("/api/latest"),
+                    fetch("/api/history"),
+                    fetch("/api/statistics")
+                ]);
+
+                if (!latestRes.ok || !historyRes.ok || !statsRes.ok) {
+                    throw new Error("服务器返回异常");
+                }
+
+                const latest = await latestRes.json();
+                const history = await historyRes.json();
+                const stats = await statsRes.json();
+
+                if (latest.length > 0) {
+                    const avg = key => latest.reduce(
+                        (sum, item) => sum + Number(item[key] || 0), 0
+                    ) / latest.length;
+
+                    document.getElementById("temperature").textContent =
+                        avg("temperature").toFixed(2) + " °C";
+                    document.getElementById("humidity").textContent =
+                        avg("humidity").toFixed(2) + " %";
+                    document.getElementById("light").textContent =
+                        avg("light").toFixed(2) + " lx";
+                }
+
+                document.getElementById("total").textContent =
+                    stats.total_records;
+
+                document.getElementById("nodes").innerHTML =
+                    latest.map(node => `
+                        <div class="card">
+                            <h3>${node.node_name || node.node_id}</h3>
+                            <div class="status">● 已收到数据</div>
+                            <p>节点编号：${node.node_id}</p>
+                            <p>温度：${node.temperature} °C</p>
+                            <p>湿度：${node.humidity} %</p>
+                            <p>光照：${node.light} lx</p>
+                            <p class="muted">消息序号：${node.seq}</p>
+                        </div>
+                    `).join("");
+
+                const times = history.map(item =>
+                    new Date(item.timestamp).toLocaleTimeString()
+                );
+
+                function drawChart(chart, field, title, unit) {
+                    chart.setOption({
+                        title: { text: title },
+                        tooltip: { trigger: "axis" },
+                        legend: { data: ["Node001", "Node002"] },
+                        xAxis: { type: "category", data: times },
+                        yAxis: { type: "value", name: unit },
+                        series: ["Node001", "Node002"].map(nodeId => ({
+                            name: nodeId,
+                            type: "line",
+                            smooth: true,
+                            data: history.map(item =>
+                                item.node_id === nodeId
+                                    ? item[field] : null
+                            )
+                        }))
+                    });
+                }
+
+                drawChart(tempChart, "temperature", "温度历史曲线", "°C");
+                drawChart(humidityChart, "humidity", "湿度历史曲线", "%");
+                drawChart(lightChart, "light", "光照历史曲线", "lx");
+
+            } catch (error) {
+                console.error("更新监测页面失败：", error);
+            }
+        }
+
+        updateDashboard();
+        setInterval(updateDashboard, 3000);
+
+        window.addEventListener("resize", () => {
+            tempChart.resize();
+            humidityChart.resize();
+            lightChart.resize();
+        });
+    </script>
+</body>
+</html>
