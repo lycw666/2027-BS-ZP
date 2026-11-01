@@ -15,7 +15,7 @@ NODES = [
 COLLECT_INTERVAL = 2
 
 # MQTT配置
-MQTT_BROKER = "localhost"
+MQTT_BROKER = "127.0.0.1"
 MQTT_PORT = 1883
 MQTT_TOPIC = "aiot/environment"
 MQTT_KEEPALIVE = 60
