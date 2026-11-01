@@ -1,11 +1,21 @@
-# 节点基础配置
+# 模拟节点配置
 
-NODE_IDS = ["Node001", "Node002"]
+NODES = [
+    {
+        "node_id": "Node001",
+        "node_name": "环境监测节点1"
+    },
+    {
+        "node_id": "Node002",
+        "node_name": "环境监测节点2"
+    }
+]
 
 # 数据采集间隔（秒）
-SEND_INTERVAL = 2
+COLLECT_INTERVAL = 2
 
-# 环境数据模拟范围
-TEMPERATURE_RANGE = (20.0, 35.0)
-HUMIDITY_RANGE = (40.0, 80.0)
-LIGHT_RANGE = (100, 1000)
+# MQTT配置
+MQTT_BROKER = "localhost"
+MQTT_PORT = 1883
+MQTT_TOPIC = "aiot/environment"
+MQTT_KEEPALIVE = 60
